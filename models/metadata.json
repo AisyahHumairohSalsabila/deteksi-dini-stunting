@@ -1,0 +1,29 @@
+{
+  "fitur": [
+    "umur",
+    "jk",
+    "berat",
+    "tinggi"
+  ],
+  "kategori": [
+    "Normal",
+    "Severely Stunted",
+    "Stunted",
+    "Tinggi"
+  ],
+  "model_terbaik": "Random Forest",
+  "metrik_rf": {
+    "Model": "Random Forest",
+    "Accuracy": 0.9224952741020794,
+    "Precision (macro)": 0.8824667898302102,
+    "Recall (macro)": 0.8798602009611184,
+    "F1-Score (macro)": 0.8811542107541495
+  },
+  "metrik_xgb": {
+    "Model": "XGBoost",
+    "Accuracy": 0.7523629489603024,
+    "Precision (macro)": 0.6795289855072464,
+    "Recall (macro)": 0.7489405854084753,
+    "F1-Score (macro)": 0.6908295969127127
+  }
+}

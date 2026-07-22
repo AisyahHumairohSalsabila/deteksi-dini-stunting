@@ -1,0 +1,9 @@
+waktu,umur_bulan,jenis_kelamin,berat_kg,tinggi_cm,status,tingkat_keyakinan
+2026-07-18 10:37:08,24.0,Laki-laki,11.0,85.0,Stunted,0.99
+2026-07-18 11:53:02,42.0,Laki-laki,11.0,110.0,Stunted,0.9933
+2026-07-18 12:35:09,24.0,Laki-laki,11.0,85.0,Stunted,0.99
+2026-07-18 12:35:22,24.0,Laki-laki,24.0,110.0,Stunted,0.9967
+2026-07-18 12:35:25,45.0,Perempuan,24.0,110.0,Stunted,1.0
+2026-07-18 12:35:28,45.0,Perempuan,24.0,110.0,Stunted,1.0
+2026-07-18 23:13:32,39.0,Perempuan,18.0,85.0,Severely Stunted,0.5333
+2026-07-18 23:13:34,39.0,Perempuan,18.0,105.0,Normal,1.0
