@@ -1,4 +1,6 @@
 """Dashboard visualisasi data primer untuk pemantauan Posyandu."""
+import re
+
 import pandas as pd
 import streamlit as st
 
@@ -21,6 +23,20 @@ def find_column(df: pd.DataFrame, *candidates: str):
     """Mengambil kolom yang namanya sesuai kandidat, tanpa peka kapitalisasi."""
     lookup = {column.strip().lower(): column for column in df.columns}
     return next((lookup[name.strip().lower()] for name in candidates if name.strip().lower() in lookup), None)
+
+
+def extract_valid_years(series: pd.Series) -> list:
+    """Ambil hanya nilai tahun yang valid (format 19xx/20xx) dari kolom tahun.
+
+    Ini mencegah nilai non-tahun (misalnya nama file seperti "PMT" yang
+    tercampur di kolom tahun) ikut muncul sebagai opsi filter.
+    """
+    years = set()
+    for value in series.dropna():
+        match = re.search(r"(19|20)\d{2}", str(value).strip())
+        if match:
+            years.add(int(match.group()))
+    return sorted(years)
 
 
 def section_heading(number: str, title: str, subtitle: str, description: str) -> None:
@@ -64,10 +80,27 @@ try:
         for container, column in zip(filter_cols, available_filters):
             with container:
                 label = column.replace("_", " ").title()
-                options = sorted(data[column].dropna().unique().tolist())
+                is_tahun = column == col_tahun
+
+                if is_tahun:
+                    # Khusus kolom tahun: hanya tampilkan nilai tahun yang valid
+                    # (angka 19xx/20xx), bukan teks lain yang mungkin tercampur.
+                    options = extract_valid_years(data[column])
+                else:
+                    options = sorted(data[column].dropna().unique().tolist())
+
                 selected = st.multiselect(label, options, placeholder=f"Semua {label.lower()}")
+
                 if selected:
-                    filtered = filtered[filtered[column].isin(selected)]
+                    if is_tahun:
+                        tahun_series = (
+                            filtered[column]
+                            .astype(str)
+                            .str.extract(r"((?:19|20)\d{2})")[0]
+                        )
+                        filtered = filtered[tahun_series.astype(float).isin(selected)]
+                    else:
+                        filtered = filtered[filtered[column].isin(selected)]
         st.markdown("</div>", unsafe_allow_html=True)
 
     if filtered.empty:
