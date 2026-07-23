@@ -43,13 +43,14 @@ st.markdown(
     <p>Masukkan hasil pengukuran terbaru. Pastikan alat ukur dan pencatatan sudah sesuai sebelum melanjutkan.</p></section>""",
     unsafe_allow_html=True,
 )
+
 st.markdown(
     """<article class="instruction-card"><h2>Petunjuk pemeriksaan</h2>
     <p>Isi umur dalam bulan, pilih jenis kelamin, lalu masukkan berat badan (kg) dan tinggi badan (cm) hasil pengukuran terakhir.</p></article>""",
     unsafe_allow_html=True,
 )
-st.markdown("<h2 class='section-title'>Form Input Pemeriksaan</h2>", unsafe_allow_html=True)
 
+st.markdown("<h2 class='section-title'>Form Input Pemeriksaan</h2>", unsafe_allow_html=True)
 with st.form("form_deteksi", border=False):
     st.markdown("<div class='form-panel'>", unsafe_allow_html=True)
     left, right = st.columns(2, gap="large")
@@ -70,34 +71,37 @@ if submitted:
         result = predict_stunting(umur, jenis_kelamin, berat, tinggi)
         tone, interpretation, recommendations = recommendation_for(result["status"])
         recommendation_html = "".join(f"<li>{item}</li>" for item in recommendations)
-
         probabilitas = result.get("probabilitas", {})
         probability_html = "".join(
             f"<li><span>{label}</span><b>{probabilitas.get(label, 0.0):.0%}</b></li>"
             for label in KATEGORI_URUT
         )
 
+        # Penjelasan sumber status ditulis dalam bahasa yang bisa dipahami
+        # oleh siapa saja (tidak hanya Bidan), tanpa menyebut nama teknis
+        # algoritma machine learning agar tidak membingungkan.
         if result.get("sumber_status") == "zscore_who":
             catatan_sumber = (
-                "Status ditentukan langsung dari perhitungan Z-Score TB/U baku WHO, "
-                "karena berada di luar cakupan Stunted/Severely Stunted yang dipelajari model."
+                "Status ini dihitung langsung menggunakan standar pertumbuhan resmi dari WHO "
+                "(disebut Z-Score Tinggi Badan menurut Umur, atau TB/U), karena hasil pengukuran "
+                "berada pada rentang yang sudah jelas kategorinya."
             )
         else:
             catatan_sumber = (
-                "Status ditentukan oleh model Random Forest terbaik, yang khusus mempertajam "
-                "perbedaan tingkat keparahan antara Stunted dan Severely Stunted."
+                "Status ini dibantu oleh sistem prediksi yang telah diuji secara ilmiah, "
+                "untuk membedakan tingkat keparahan antara Stunted dan Severely Stunted "
+                "secara lebih tepat."
             )
 
         zscore = result.get("zscore")
         zscore_html = f"<div><span>Z-Score TB/U</span><b>{zscore:.2f} SD</b></div>" if zscore is not None else ""
-
         st.markdown(
             f"""<section class="prediction-card {tone}"><div class="tag">HASIL DETEKSI</div>
             <h2>{result['status']}</h2><div class="result-grid"><div><span>Status</span><b>{interpretation}</b></div>
-            <div><span>Confidence</span><b>{result['confidence']:.0%}</b></div>{zscore_html}</div>
-            <h3>Interpretasi</h3><p>{interpretation}. {catatan_sumber} Hasil ini adalah alat bantu deteksi dini dan perlu dikonfirmasi melalui pemeriksaan tenaga kesehatan.</p>
-            <h3>Probabilitas hasil</h3><ul class="probability-list">{probability_html}</ul>
-            <h3>Rekomendasi</h3><ul>{recommendation_html}</ul></section>""",
+            <div><span>Tingkat Keyakinan</span><b>{result['confidence']:.0%}</b></div>{zscore_html}</div>
+            <h3>Apa artinya ini?</h3><p>{interpretation}. {catatan_sumber} Hasil ini adalah alat bantu deteksi dini, bukan diagnosis akhir — tetap perlu dikonfirmasi melalui pemeriksaan langsung oleh tenaga kesehatan.</p>
+            <h3>Rincian kemungkinan status</h3><ul class="probability-list">{probability_html}</ul>
+            <h3>Yang sebaiknya dilakukan</h3><ul>{recommendation_html}</ul></section>""",
             unsafe_allow_html=True,
         )
 
@@ -115,14 +119,14 @@ if submitted:
         }
         save_record(record)
         st.session_state.setdefault("riwayat_sesi", []).append(record)
-
     except Exception as error:
         st.error(f"Deteksi belum dapat dilakukan: {error}")
 
 st.markdown(
-    "<div class='disclaimer'><b>Catatan penting.</b> Hasil deteksi dini tidak menggantikan diagnosis Bidan atau dokter. "
-    "Kategori Normal/Tinggi ditentukan dari Z-Score TB/U baku WHO, sedangkan tingkat keparahan Stunted/Severely Stunted "
-    "ditentukan oleh model Random Forest yang telah dievaluasi pada Bab IV skripsi.</div>",
+    "<div class='disclaimer'><b>Catatan penting.</b> Hasil deteksi dini ini adalah alat bantu awal, bukan pengganti "
+    "pemeriksaan dan diagnosis resmi dari Bidan atau dokter. Kategori Normal dan Tinggi dihitung berdasarkan standar "
+    "pertumbuhan resmi WHO (Z-Score TB/U). Untuk kategori Stunted dan Severely Stunted, tingkat keparahannya dibantu "
+    "oleh sistem prediksi yang sudah diuji dan dievaluasi secara ilmiah sebelum digunakan di aplikasi ini.</div>",
     unsafe_allow_html=True,
 )
 
@@ -130,7 +134,6 @@ st.divider()
 st.markdown("<h2 class='section-title'>Riwayat Deteksi</h2>", unsafe_allow_html=True)
 
 history = load_history()
-
 with st.expander("Muat riwayat sebelumnya (jika file lokal hilang setelah redeploy)"):
     uploaded = st.file_uploader("Unggah CSV riwayat", type="csv")
     if uploaded is not None:
@@ -154,7 +157,6 @@ else:
     stunting_today = int(
         history[(history["waktu"].dt.date == today) & (history["status"].isin(["Stunted", "Severely Stunted"]))].shape[0]
     )
-
     kpi_cols = st.columns(3, gap="medium")
     kpi_data = [
         ("Pemeriksaan Hari Ini", f"{today_count:,}", "Total input pada form di atas"),
@@ -166,7 +168,6 @@ else:
             f"<article class='metric-card'><span>{label}</span><strong>{value}</strong><p>{caption}</p></article>",
             unsafe_allow_html=True,
         )
-
     st.markdown("<div class='kpi-label'>DAFTAR RIWAYAT</div>", unsafe_allow_html=True)
     st.dataframe(
         history.sort_values("waktu", ascending=False).reset_index(drop=True),
