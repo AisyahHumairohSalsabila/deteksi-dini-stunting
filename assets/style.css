@@ -9,7 +9,28 @@
 html, body, [class*="css"] { font-family:'Plus Jakarta Sans',sans-serif; color:var(--navy) !important; }
 html, body { color-scheme:light !important; background:var(--pale) !important; }
 .stApp { background:var(--pale) !important; color:var(--navy) !important; }
-#MainMenu, footer, header { visibility:hidden; }
+
+/* PENTING: jangan sembunyikan seluruh <header> — itu tempat tombol
+   hamburger/toggle sidebar berada, yang di layar sempit (HP) adalah
+   satu-satunya cara membuka sidebar. Sembunyikan hanya bagian menu
+   (ikon titik tiga/"Deploy") dan footer, biarkan header & tombol
+   toggle-nya tetap terlihat. */
+#MainMenu, footer { visibility:hidden; }
+[data-testid="stHeader"] {
+  background:transparent !important;
+  box-shadow:none !important;
+  visibility:visible !important;
+  height:auto !important;
+}
+[data-testid="stToolbar"] { visibility:hidden; }
+[data-testid="collapsedControl"] {
+  visibility:visible !important;
+  display:flex !important;
+  opacity:1 !important;
+  z-index:999999 !important;
+}
+[data-testid="collapsedControl"] svg { fill:var(--navy) !important; }
+
 .block-container { max-width:1280px; padding:2.25rem 3rem 4rem; }
 
 /* Sidebar */
@@ -131,4 +152,8 @@ label, [data-testid="stWidgetLabel"] p { color:var(--navy) !important; font-size
   .section-heading h2,.section-title { font-size:22px; }
   .section-subtitle { font-size:17px; }
   .result-grid { grid-template-columns:1fr; }
+
+  /* Sidebar lebih mudah dipakai dengan jari saat dibuka di HP */
+  [data-testid="stSidebar"] { width:85vw !important; min-width:220px !important; }
+  [data-testid="collapsedControl"] { top:.5rem !important; left:.5rem !important; }
 }
