@@ -158,36 +158,36 @@ try:
         render_chart(figures["heatmap"], "Kekuatan hubungan antarvariabel antropometri.",
                      "hubungan statistik membantu memahami pola data, tetapi keputusan layanan tetap melalui pemeriksaan tenaga kesehatan.")
 
-    with tab_map["Model"]:
-        section_heading("05", "Evaluasi Model", "Kelayakan penggunaan sebagai alat bantu",
-                         "Sistem digunakan sebagai deteksi dini untuk mendukung, bukan menggantikan, pemeriksaan Bidan atau dokter.")
-        st.markdown(
-            """<article class='evaluation-card'><h3>Visual evaluasi untuk dokumentasi implementasi</h3>
-            <p>Bagian ini menampilkan keluaran evaluasi dari artefak model penelitian untuk kebutuhan dokumentasi
-            dan pengujian sistem. Halaman Deteksi Dini tidak menampilkan istilah teknis ini kepada Bidan.</p></article>""",
-            unsafe_allow_html=True,
-        )
-        try:
-            with st.spinner("Menyiapkan visual evaluasi model..."):
-                model_figures = build_model_figures(filtered)
-            left, right = st.columns(2, gap="large")
-            with left:
-                render_chart(model_figures["rf_importance"], "Kontribusi relatif setiap atribut pada model Random Forest.",
-                             "atribut dengan kontribusi lebih besar lebih sering membantu pemisahan kelas pada data penelitian.")
-            with right:
-                render_chart(model_figures["xgb_importance"], "Kontribusi relatif setiap atribut pada model XGBoost.",
-                             "perbandingan membantu dokumentasi perilaku kedua algoritma yang diuji pada notebook.")
-            left, right = st.columns(2, gap="large")
-            with left:
-                render_chart(model_figures["cm_rf"], "Perbandingan kelas aktual dan hasil prediksi Random Forest.",
-                             "nilai pada diagonal menunjukkan prediksi yang selaras dengan label data uji.")
-            with right:
-                render_chart(model_figures["cm_xgb"], "Perbandingan kelas aktual dan hasil prediksi XGBoost.",
-                             "sel yang tidak berada pada diagonal menunjukkan prediksi berbeda dari label data uji.")
-            render_chart(model_figures["roc"], "Kurva kemampuan pemisahan kelas untuk setiap algoritma.",
-                         "kurva yang berada lebih jauh dari garis acuan menunjukkan kemampuan pemisahan yang lebih baik pada data uji.")
-        except Exception as error:
-            st.info(f"Visual evaluasi belum dapat ditampilkan pada filter ini: {error}")
+    #with tab_map["Model"]:
+        #section_heading("05", "Evaluasi Model", "Kelayakan penggunaan sebagai alat bantu",
+                         #"Sistem digunakan sebagai deteksi dini untuk mendukung, bukan menggantikan, pemeriksaan Bidan atau dokter.")
+        #st.markdown(
+           # """<article class='evaluation-card'><h3>Visual evaluasi untuk dokumentasi implementasi</h3>
+            #<p>Bagian ini menampilkan keluaran evaluasi dari artefak model penelitian untuk kebutuhan dokumentasi
+            #dan pengujian sistem. Halaman Deteksi Dini tidak menampilkan istilah teknis ini kepada Bidan.</p></article>""",
+            #unsafe_allow_html=True,
+        #)
+        #try:
+            #with st.spinner("Menyiapkan visual evaluasi model..."):
+                #model_figures = build_model_figures(filtered)
+            #left, right = st.columns(2, gap="large")
+            #with left:
+                #render_chart(model_figures["rf_importance"], "Kontribusi relatif setiap atribut pada model Random Forest.",
+                  #           "atribut dengan kontribusi lebih besar lebih sering membantu pemisahan kelas pada data penelitian.")
+            #with right:
+                #render_chart(model_figures["xgb_importance"], "Kontribusi relatif setiap atribut pada model XGBoost.",
+                 #            "perbandingan membantu dokumentasi perilaku kedua algoritma yang diuji pada notebook.")
+            #left, right = st.columns(2, gap="large")
+            #with left:
+                #render_chart(model_figures["cm_rf"], "Perbandingan kelas aktual dan hasil prediksi Random Forest.",
+                 #            "nilai pada diagonal menunjukkan prediksi yang selaras dengan label data uji.")
+            #with right:
+             #   render_chart(model_figures["cm_xgb"], "Perbandingan kelas aktual dan hasil prediksi XGBoost.",
+              #               "sel yang tidak berada pada diagonal menunjukkan prediksi berbeda dari label data uji.")
+            # render_chart(model_figures["roc"], "Kurva kemampuan pemisahan kelas untuk setiap algoritma.",
+              #           "kurva yang berada lebih jauh dari garis acuan menunjukkan kemampuan pemisahan yang lebih baik pada data uji.")
+        # except Exception as error:
+         #   st.info(f"Visual evaluasi belum dapat ditampilkan pada filter ini: {error}")
 
 except Exception as error:
     st.error(f"Dashboard visualisasi belum dapat dimuat: {error}")
