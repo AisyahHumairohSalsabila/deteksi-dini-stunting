@@ -10,26 +10,46 @@ html, body, [class*="css"] { font-family:'Plus Jakarta Sans',sans-serif; color:v
 html, body { color-scheme:light !important; background:var(--pale) !important; }
 .stApp { background:var(--pale) !important; color:var(--navy) !important; }
 
-/* PENTING: jangan sembunyikan seluruh <header> — itu tempat tombol
-   hamburger/toggle sidebar berada, yang di layar sempit (HP) adalah
-   satu-satunya cara membuka sidebar. Sembunyikan hanya bagian menu
-   (ikon titik tiga/"Deploy") dan footer, biarkan header & tombol
-   toggle-nya tetap terlihat. */
-#MainMenu, footer { visibility:hidden; }
-[data-testid="stHeader"] {
+/* =========================================================
+   HEADER & TOMBOL TOGGLE SIDEBAR
+   Nama data-testid untuk tombol pembuka sidebar berbeda-beda
+   antar versi Streamlit (mis. "collapsedControl",
+   "stSidebarCollapsedControl", dll). Jangan sembunyikan <header>
+   secara total — cukup sembunyikan menu titik-tiga & tombol
+   "Deploy" saja, lalu paksa SEMUA tombol di dalam header maupun
+   di bagian atas sidebar tetap terlihat, apa pun nama testid-nya.
+   ========================================================= */
+#MainMenu { visibility:hidden; }
+footer { visibility:hidden; }
+[data-testid*="eployButton" i] { display:none !important; }
+
+header, [data-testid="stHeader"] {
   background:transparent !important;
   box-shadow:none !important;
   visibility:visible !important;
+  display:block !important;
   height:auto !important;
+  min-height:2.75rem;
+  position:relative;
+  z-index:999998;
 }
-[data-testid="stToolbar"] { visibility:hidden; }
-[data-testid="collapsedControl"] {
+
+/* Paksa semua tombol/ikon di dalam header (termasuk tombol toggle
+   sidebar, apa pun nama testid-nya di versi Streamlit yang dipakai)
+   supaya tetap terlihat dan bisa disentuh. */
+[data-testid="stHeader"] button,
+[data-testid="stHeader"] svg,
+[data-testid$="CollapsedControl" i],
+[data-testid$="collapsedControl" i],
+[data-testid*="SidebarCollapse" i],
+[data-testid*="SidebarExpand" i] {
   visibility:visible !important;
-  display:flex !important;
   opacity:1 !important;
+  display:flex !important;
   z-index:999999 !important;
+  pointer-events:auto !important;
 }
-[data-testid="collapsedControl"] svg { fill:var(--navy) !important; }
+[data-testid="stHeader"] svg { fill:var(--navy) !important; color:var(--navy) !important; }
 
 .block-container { max-width:1280px; padding:2.25rem 3rem 4rem; }
 
@@ -84,9 +104,13 @@ html, body { color-scheme:light !important; background:var(--pale) !important; }
 .insight { border-left:3px solid #76AEDA; color:#426177; font-size:13px; line-height:1.65; padding:.5rem 0 .5rem .85rem; margin:1rem 0 0; }
 .evaluation-card h3 { font-size:18px; margin:0 0 .45rem; }
 
-/* Tabs (dashboard sections) */
-.stTabs [data-baseweb="tab-list"] { gap:.5rem; border-bottom:1px solid var(--border); }
-.stTabs [data-baseweb="tab"] { color:var(--muted) !important; font-weight:700; font-size:14px; padding:.6rem .2rem; }
+/* Tabs (dashboard sections) — scroll horizontal di layar sempit
+   alih-alih menumpuk/terpotong */
+.stTabs [data-baseweb="tab-list"] {
+  gap:.5rem; border-bottom:1px solid var(--border);
+  overflow-x:auto; flex-wrap:nowrap; scrollbar-width:thin;
+}
+.stTabs [data-baseweb="tab"] { color:var(--muted) !important; font-weight:700; font-size:14px; padding:.6rem .2rem; white-space:nowrap; flex-shrink:0; }
 .stTabs [aria-selected="true"] { color:#1D6398 !important; border-bottom:2px solid #1D6398 !important; }
 .stTabs [data-baseweb="tab-panel"] { padding-top:1.4rem; }
 
@@ -145,15 +169,53 @@ label, [data-testid="stWidgetLabel"] p { color:var(--navy) !important; font-size
 /* Riwayat / history table */
 .history-empty { background:#fff; border:1px dashed var(--border); border-radius:16px; padding:2rem; text-align:center; color:var(--muted); }
 
-@media (max-width:700px) {
-  .block-container { padding:1.2rem 1rem 2.5rem; }
-  .hero { border-radius:20px; padding:2rem 1.4rem; }
-  .hero h1 { font-size:30px; }
-  .section-heading h2,.section-title { font-size:22px; }
-  .section-subtitle { font-size:17px; }
+/* Plotly charts & dataframes selalu menyesuaikan lebar kontainer */
+[data-testid="stPlotlyChart"], .js-plotly-plot, [data-testid="stDataFrame"] {
+  width:100% !important; max-width:100%;
+}
+
+/* =========================================================
+   RESPONSIF — TABLET (≤ 900px)
+   ========================================================= */
+@media (max-width:900px) {
+  .block-container { padding:1.75rem 1.5rem 3rem; }
+  .hero { padding:2.4rem 2rem; }
   .result-grid { grid-template-columns:1fr; }
+  [data-testid="stSidebar"] { min-width:230px !important; }
+}
+
+/* =========================================================
+   RESPONSIF — HP (≤ 700px)
+   ========================================================= */
+@media (max-width:700px) {
+  .block-container { padding:1.1rem .9rem 2.5rem; }
+  .hero { border-radius:20px; padding:1.8rem 1.3rem; }
+  .hero h1 { font-size:26px; }
+  .hero p { font-size:14px; }
+  .section-heading h2,.section-title { font-size:20px; }
+  .section-subtitle { font-size:16px; }
+  .metric-card { min-height:auto; padding:.95rem 1rem; }
+  .metric-card strong { font-size:20px; }
+  .prediction-card { padding:1.5rem 1.3rem; }
+  .prediction-card h2 { font-size:24px; }
 
   /* Sidebar lebih mudah dipakai dengan jari saat dibuka di HP */
-  [data-testid="stSidebar"] { width:85vw !important; min-width:220px !important; }
-  [data-testid="collapsedControl"] { top:.5rem !important; left:.5rem !important; }
+  [data-testid="stSidebar"] { width:82vw !important; min-width:220px !important; }
+
+  /* Ruang lebih di pojok kiri atas untuk tombol toggle supaya
+     mudah disentuh dan tidak tertutup elemen lain */
+  [data-testid="stHeader"] { padding-left:.25rem; }
+}
+
+/* =========================================================
+   RESPONSIF — HP KECIL (≤ 420px)
+   ========================================================= */
+@media (max-width:420px) {
+  .block-container { padding:.9rem .7rem 2rem; }
+  .hero { padding:1.5rem 1.1rem; border-radius:16px; }
+  .hero h1 { font-size:22px; }
+  .eyebrow { font-size:10px; }
+  .section-number { font-size:12px; padding:.3rem .4rem; }
+  .metric-card strong { font-size:18px; }
+  [data-testid="stSidebar"] { width:88vw !important; }
 }
