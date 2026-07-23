@@ -10,7 +10,13 @@ import streamlit as st
 st.set_page_config(
     page_title="Deteksi Dini Stunting",
     layout="wide",
-    initial_sidebar_state="expanded",
+    # "auto" membiarkan Streamlit menentukan sendiri kondisi awal sidebar
+    # sesuai lebar layar: terbuka di desktop, dan collapsed (dengan tombol
+    # toggle/hamburger otomatis muncul) di layar sempit seperti HP.
+    # Nilai "expanded" sebelumnya memaksa sidebar selalu terbuka penuh,
+    # termasuk saat pertama kali dibuka di HP, sehingga tombol togglenya
+    # tidak pernah dirender pada kondisi awal.
+    initial_sidebar_state="auto",
 )
 
 
