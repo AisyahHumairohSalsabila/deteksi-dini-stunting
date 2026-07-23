@@ -1,6 +1,4 @@
 """Dashboard visualisasi data primer untuk pemantauan Posyandu."""
-import re
-
 import pandas as pd
 import streamlit as st
 
@@ -25,20 +23,6 @@ def find_column(df: pd.DataFrame, *candidates: str):
     return next((lookup[name.strip().lower()] for name in candidates if name.strip().lower() in lookup), None)
 
 
-def extract_valid_years(series: pd.Series) -> list:
-    """Ambil hanya nilai tahun yang valid (format 19xx/20xx) dari kolom tahun.
-
-    Ini mencegah nilai non-tahun (misalnya nama file seperti "PMT" yang
-    tercampur di kolom tahun) ikut muncul sebagai opsi filter.
-    """
-    years = set()
-    for value in series.dropna():
-        match = re.search(r"(19|20)\d{2}", str(value).strip())
-        if match:
-            years.add(int(match.group()))
-    return sorted(years)
-
-
 def section_heading(number: str, title: str, subtitle: str, description: str) -> None:
     st.markdown(
         f"""<section class="section-heading"><span class="section-number">{number}</span>
@@ -57,6 +41,10 @@ def render_chart(figure, description: str, insight: str) -> None:
 
 try:
     data = get_data()
+    # Kolom "tahun" diprioritaskan karena dibangun bersih dari tanggal
+    # pemeriksaan di load_primary_data(). Kolom mentah "tahun_data" pada
+    # berkas sumber (bila ada) sengaja tidak dipakai karena isinya kode/ID,
+    # bukan tahun murni.
     col_tahun = find_column(data, "tahun", "year", "tahun_data")
     # Dataset ePPGBM menggunakan singkatan/variasi nama kolom berikut.
     col_kecamatan = find_column(data, "kecamatan", "kec")
@@ -80,27 +68,10 @@ try:
         for container, column in zip(filter_cols, available_filters):
             with container:
                 label = column.replace("_", " ").title()
-                is_tahun = column == col_tahun
-
-                if is_tahun:
-                    # Khusus kolom tahun: hanya tampilkan nilai tahun yang valid
-                    # (angka 19xx/20xx), bukan teks lain yang mungkin tercampur.
-                    options = extract_valid_years(data[column])
-                else:
-                    options = sorted(data[column].dropna().unique().tolist())
-
+                options = sorted(data[column].dropna().unique().tolist())
                 selected = st.multiselect(label, options, placeholder=f"Semua {label.lower()}")
-
                 if selected:
-                    if is_tahun:
-                        tahun_series = (
-                            filtered[column]
-                            .astype(str)
-                            .str.extract(r"((?:19|20)\d{2})")[0]
-                        )
-                        filtered = filtered[tahun_series.astype(float).isin(selected)]
-                    else:
-                        filtered = filtered[filtered[column].isin(selected)]
+                    filtered = filtered[filtered[column].isin(selected)]
         st.markdown("</div>", unsafe_allow_html=True)
 
     if filtered.empty:
