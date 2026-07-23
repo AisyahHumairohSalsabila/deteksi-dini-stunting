@@ -64,10 +64,12 @@ def load_primary_data() -> pd.DataFrame:
     data["umur"] = np.floor((data["tanggal_pengukuran"] - data["tgl_lahir"]).dt.days / 30.44)
     data.loc[data["umur"] < 0, "umur"] = np.nan
 
-    # Kolom tahun yang benar-benar valid diambil dari tanggal pemeriksaan
-    # (bukan dari kolom "tahun_data" pada berkas sumber, yang ternyata berisi
-    # kode/ID seperti "Daftar-Status-Gizi-PMT-20042604-0006" — angka di
-    # dalamnya bukan tahun, sehingga tidak bisa dipakai untuk grafik tren).
+    # PENTING: kolom tahun yang dipakai di seluruh dashboard SELALU dibangun
+    # dari tanggal pemeriksaan (tanggal_pengukuran), bukan dari kolom mentah
+    # semacam "tahun_data" pada berkas sumber — kolom itu ternyata berisi
+    # kode/ID (mis. "Daftar-Status-Gizi-PMT-20042604-0006" atau nama
+    # berkas/folder lain), bukan tahun murni, sehingga tidak aman dipakai
+    # langsung untuk grafik tren.
     tahun_batas_atas = pd.Timestamp.now().year + TAHUN_MAX_OFFSET
     tahun = data["tanggal_pengukuran"].dt.year
     data["tahun"] = tahun.where(tahun.between(TAHUN_MIN, tahun_batas_atas)).astype("Int64")
@@ -94,9 +96,14 @@ def build_summary(data: pd.DataFrame) -> dict[str, Any]:
 
 
 def base_layout(fig: go.Figure, title: str) -> go.Figure:
+    # Font disamakan dengan font UI utama ("Plus Jakarta Sans" di
+    # assets/style.css). st.plotly_chart merender grafik di dalam iframe
+    # terpisah yang terisolasi dari CSS halaman utama, jadi font grafik
+    # WAJIB diatur di sini (bukan lewat CSS) agar tampilannya konsisten
+    # dengan teks lain di dashboard.
     fig.update_layout(
         title=title, template="plotly_white", margin=dict(l=20, r=20, t=55, b=20),
-        font=dict(family="Inter, Arial, sans-serif", color="#244058"),
+        font=dict(family="'Plus Jakarta Sans', Arial, sans-serif", color="#244058"),
         paper_bgcolor="white", plot_bgcolor="white", legend_title_text="",
     )
     return fig
@@ -160,15 +167,18 @@ def build_wilayah_figures(data: pd.DataFrame, wilayah_column: str | None) -> dic
 def build_trend_figures(data: pd.DataFrame, tahun_column: str | None) -> dict[str, go.Figure]:
     """Grafik tren jumlah kasus per tahun — kosong jika kolom tahun tidak ada.
 
-    Mengasumsikan `tahun_column` sudah berupa tahun numerik yang bersih
-    (lihat kolom "tahun" yang dibangun di load_primary_data, diturunkan dari
-    tanggal_pengukuran). Baris tanpa tahun valid dibuang agar tidak membuat
-    sumbu-x melebar dengan nilai yang tidak masuk akal.
+    Sengaja memakai pd.to_numeric(..., errors="coerce") alih-alih
+    .astype(int) langsung: apa pun isi kolom tahun (idealnya kolom "tahun"
+    bersih dari load_primary_data, tapi bisa juga kolom lain yang kebetulan
+    cocok dan ternyata masih berisi teks/kode), nilai yang bukan angka akan
+    otomatis menjadi kosong (bukan membuat aplikasi error/crash).
     """
     if not tahun_column or tahun_column not in data.columns:
         return {}
 
-    working = data.dropna(subset=[tahun_column]).copy()
+    working = data.copy()
+    working[tahun_column] = pd.to_numeric(working[tahun_column], errors="coerce")
+    working = working.dropna(subset=[tahun_column])
     if working.empty:
         return {}
     working[tahun_column] = working[tahun_column].astype(int)
