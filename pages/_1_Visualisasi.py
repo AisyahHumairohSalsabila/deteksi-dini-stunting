@@ -1,10 +1,10 @@
 """Dashboard visualisasi data primer untuk pemantauan Posyandu."""
+
 import pandas as pd
 import streamlit as st
 
 from utils.visualization import (
     build_data_figures,
-    build_model_figures,
     build_summary,
     build_trend_figures,
     build_wilayah_figures,
@@ -41,16 +41,20 @@ def render_chart(figure, description: str, insight: str) -> None:
 
 try:
     data = get_data()
-    # Kolom "tahun" diprioritaskan karena dibangun bersih dari tanggal
-    # pemeriksaan di load_primary_data(). Kolom mentah "tahun_data" pada
-    # berkas sumber (bila ada) sengaja tidak dipakai karena isinya kode/ID,
-    # bukan tahun murni.
-    col_tahun = find_column(data, "tahun", "year", "tahun_data")
+
+    # PENTING: kolom tahun WAJIB pakai kolom "tahun" bersih yang dibangun
+    # dari tanggal_pengukuran di load_primary_data(). Kolom mentah semacam
+    # "tahun_data" pada berkas sumber sengaja TIDAK dipakai sama sekali
+    # (tidak ada fallback) karena isinya kode/ID (mis. kode PMT), bukan
+    # tahun murni, sehingga akan merusak grafik tren bila terpakai.
+    col_tahun = "tahun" if "tahun" in data.columns else None
+
     # Dataset ePPGBM menggunakan singkatan/variasi nama kolom berikut.
     col_kecamatan = find_column(data, "kecamatan", "kec")
     col_puskesmas = find_column(data, "puskesmas", "pukesmas")
     col_desa = find_column(data, "desa", "kelurahan", "desa_kel")
     col_posyandu = find_column(data, "posyandu")
+
     filtered = data.copy()
 
     st.markdown(
@@ -63,7 +67,6 @@ try:
 
     available_filters = [column for column in (col_tahun, col_kecamatan, col_puskesmas) if column]
     if available_filters:
-        #st.markdown("<div class='filter-panel'><p>Filter data</p>", unsafe_allow_html=True)
         filter_cols = st.columns(len(available_filters), gap="large")
         for container, column in zip(filter_cols, available_filters):
             with container:
@@ -88,6 +91,7 @@ try:
         ("Jumlah Desa", f"{filtered[col_desa].nunique():,}" if col_desa else "–", "Wilayah desa"),
         ("Jumlah Puskesmas", f"{filtered[col_puskesmas].nunique():,}" if col_puskesmas else "–", "Fasilitas layanan"),
     ]
+
     st.markdown("<div class='kpi-label'>RINGKASAN DATA</div>", unsafe_allow_html=True)
     for start in range(0, len(kpis), 4):
         row_cols = st.columns(4, gap="medium")
@@ -102,10 +106,14 @@ try:
     wilayah_figures = build_wilayah_figures(filtered, wilayah_column)
     trend_figures = build_trend_figures(filtered, col_tahun)
 
+    # Tab "Model" DIHAPUS dari dashboard visualisasi: evaluasi model
+    # (feature importance, confusion matrix, ROC) adalah istilah teknis
+    # riset yang tidak relevan/bisa membingungkan bagi Bidan atau tenaga
+    # kesehatan sebagai pengguna akhir dashboard ini.
     tab_names = ["Ringkasan"]
     if wilayah_figures:
         tab_names.append("Wilayah")
-    tab_names += ["Tren & Demografi", "Antropometri", "Model"]
+    tab_names += ["Tren & Demografi", "Antropometri"]
     tabs = st.tabs(tab_names)
     tab_map = dict(zip(tab_names, tabs))
 
@@ -157,37 +165,6 @@ try:
                          "perbedaan sebaran adalah konteks pemantauan, bukan diagnosis individual.")
         render_chart(figures["heatmap"], "Kekuatan hubungan antarvariabel antropometri.",
                      "hubungan statistik membantu memahami pola data, tetapi keputusan layanan tetap melalui pemeriksaan tenaga kesehatan.")
-
-    #with tab_map["Model"]:
-        #section_heading("05", "Evaluasi Model", "Kelayakan penggunaan sebagai alat bantu",
-                         #"Sistem digunakan sebagai deteksi dini untuk mendukung, bukan menggantikan, pemeriksaan Bidan atau dokter.")
-        #st.markdown(
-           # """<article class='evaluation-card'><h3>Visual evaluasi untuk dokumentasi implementasi</h3>
-            #<p>Bagian ini menampilkan keluaran evaluasi dari artefak model penelitian untuk kebutuhan dokumentasi
-            #dan pengujian sistem. Halaman Deteksi Dini tidak menampilkan istilah teknis ini kepada Bidan.</p></article>""",
-            #unsafe_allow_html=True,
-        #)
-        #try:
-            #with st.spinner("Menyiapkan visual evaluasi model..."):
-                #model_figures = build_model_figures(filtered)
-            #left, right = st.columns(2, gap="large")
-            #with left:
-                #render_chart(model_figures["rf_importance"], "Kontribusi relatif setiap atribut pada model Random Forest.",
-                  #           "atribut dengan kontribusi lebih besar lebih sering membantu pemisahan kelas pada data penelitian.")
-            #with right:
-                #render_chart(model_figures["xgb_importance"], "Kontribusi relatif setiap atribut pada model XGBoost.",
-                 #            "perbandingan membantu dokumentasi perilaku kedua algoritma yang diuji pada notebook.")
-            #left, right = st.columns(2, gap="large")
-            #with left:
-                #render_chart(model_figures["cm_rf"], "Perbandingan kelas aktual dan hasil prediksi Random Forest.",
-                 #            "nilai pada diagonal menunjukkan prediksi yang selaras dengan label data uji.")
-            #with right:
-             #   render_chart(model_figures["cm_xgb"], "Perbandingan kelas aktual dan hasil prediksi XGBoost.",
-              #               "sel yang tidak berada pada diagonal menunjukkan prediksi berbeda dari label data uji.")
-            # render_chart(model_figures["roc"], "Kurva kemampuan pemisahan kelas untuk setiap algoritma.",
-              #           "kurva yang berada lebih jauh dari garis acuan menunjukkan kemampuan pemisahan yang lebih baik pada data uji.")
-        # except Exception as error:
-         #   st.info(f"Visual evaluasi belum dapat ditampilkan pada filter ini: {error}")
 
 except Exception as error:
     st.error(f"Dashboard visualisasi belum dapat dimuat: {error}")
