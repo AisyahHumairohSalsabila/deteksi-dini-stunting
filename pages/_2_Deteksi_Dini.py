@@ -1,9 +1,7 @@
 """Form pemeriksaan Posyandu untuk deteksi dini status pertumbuhan, sekaligus riwayatnya."""
 from datetime import datetime
-
 import pandas as pd
 import streamlit as st
-
 from utils.history import COLUMNS, load_history, merge_uploaded_history, save_record
 from utils.prediction import predict_stunting
 
@@ -13,44 +11,45 @@ KATEGORI_URUT = ["Severely Stunted", "Stunted", "Normal", "Tinggi"]
 def recommendation_for(status: str) -> tuple[str, str, list[str]]:
     """Mengubah label menjadi bahasa tindak lanjut yang mudah dipahami."""
     if status == "Normal":
-        return "normal", "Pertumbuhan dalam rentang normal", [
-            "Pertahankan pola makan bergizi seimbang.",
-            "Lakukan pemantauan pertumbuhan rutin di Posyandu.",
-            "Terapkan perilaku hidup bersih dan sehat.",
+        return "normal", "Pertumbuhan anak dalam batas normal", [
+            "Terus berikan makanan bergizi seimbang setiap hari.",
+            "Rutin timbang dan ukur anak di Posyandu setiap bulan.",
+            "Jaga kebersihan diri dan lingkungan anak.",
         ]
     if status == "Tinggi":
-        return "tinggi", "Pertumbuhan tinggi untuk usia", [
-            "Konfirmasikan kembali hasil pengukuran tinggi badan.",
-            "Lanjutkan pemantauan pertumbuhan rutin di Posyandu.",
-            "Konsultasikan dengan Bidan bila terdapat kekhawatiran pada pertumbuhan anak.",
+        return "tinggi", "Tinggi badan anak di atas rata-rata untuk usianya", [
+            "Ukur ulang tinggi badan untuk memastikan hasilnya sudah tepat.",
+            "Tetap rutin timbang dan ukur anak di Posyandu setiap bulan.",
+            "Tanyakan ke Bidan jika ada hal yang dikhawatirkan pada tumbuh kembang anak.",
         ]
     if status == "Severely Stunted":
-        return "severe", "Perlu tindak lanjut segera", [
-            "Konfirmasikan kembali hasil pengukuran.",
-            "Segera konsultasikan dengan Bidan, Puskesmas, atau dokter.",
-            "Ikuti rencana pendampingan gizi dan pemantauan yang dianjurkan.",
+        return "severe", "Perlu segera diperiksa lebih lanjut", [
+            "Ukur ulang berat dan tinggi badan untuk memastikan hasilnya sudah tepat.",
+            "Segera bawa anak ke Bidan, Puskesmas, atau dokter.",
+            "Ikuti anjuran pemberian gizi dan pemantauan dari tenaga kesehatan.",
         ]
-    return "stunting", "Perlu pemantauan dan konsultasi", [
-        "Konfirmasikan kembali hasil pengukuran.",
-        "Konsultasikan dengan Bidan atau tenaga kesehatan.",
-        "Lakukan pemantauan pertumbuhan dan asupan gizi secara berkala.",
+    return "stunting", "Perlu dipantau dan diperiksa lebih lanjut", [
+        "Ukur ulang berat dan tinggi badan untuk memastikan hasilnya sudah tepat.",
+        "Konsultasikan ke Bidan atau tenaga kesehatan terdekat.",
+        "Pantau pertumbuhan dan asupan makanan anak secara rutin.",
     ]
 
 
 st.markdown(
     """<section class="hero form-hero"><div class="eyebrow">LAYANAN POSYANDU</div>
-    <h1>Deteksi Dini Pertumbuhan Balita</h1>
-    <p>Masukkan hasil pengukuran terbaru. Pastikan alat ukur dan pencatatan sudah sesuai sebelum melanjutkan.</p></section>""",
+    <h1>Cek Pertumbuhan Balita</h1>
+    <p>Masukkan hasil timbang dan ukur anak yang paling baru. Pastikan alat ukur digunakan dengan benar dan hasilnya dicatat dengan teliti sebelum lanjut.</p></section>""",
     unsafe_allow_html=True,
 )
 
 st.markdown(
-    """<article class="instruction-card"><h2>Petunjuk pemeriksaan</h2>
-    <p>Isi umur dalam bulan, pilih jenis kelamin, lalu masukkan berat badan (kg) dan tinggi badan (cm) hasil pengukuran terakhir.</p></article>""",
+    """<article class="instruction-card"><h2>Cara mengisi</h2>
+    <p>Isi umur anak dalam bulan, pilih jenis kelamin, lalu masukkan berat badan (kg) dan tinggi badan (cm) hasil pengukuran terakhir.</p></article>""",
     unsafe_allow_html=True,
 )
 
-st.markdown("<h2 class='section-title'>Form Input Pemeriksaan</h2>", unsafe_allow_html=True)
+st.markdown("<h2 class='section-title'>Form Pemeriksaan</h2>", unsafe_allow_html=True)
+
 with st.form("form_deteksi", border=False):
     st.markdown("<div class='form-panel'>", unsafe_allow_html=True)
     left, right = st.columns(2, gap="large")
@@ -63,7 +62,7 @@ with st.form("form_deteksi", border=False):
     with right:
         berat = st.number_input("Berat badan (kg)", min_value=0.1, max_value=40.0, value=11.0, step=0.1)
         tinggi = st.number_input("Tinggi badan (cm)", min_value=30.0, max_value=140.0, value=85.0, step=0.1)
-    submitted = st.form_submit_button("Deteksi Pertumbuhan", use_container_width=True)
+    submitted = st.form_submit_button("Cek Pertumbuhan", use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 if submitted:
@@ -76,35 +75,27 @@ if submitted:
             f"<li><span>{label}</span><b>{probabilitas.get(label, 0.0):.0%}</b></li>"
             for label in KATEGORI_URUT
         )
-
-        # Penjelasan sumber status ditulis dalam bahasa yang bisa dipahami
-        # oleh siapa saja (tidak hanya Bidan), tanpa menyebut nama teknis
-        # algoritma machine learning agar tidak membingungkan.
         if result.get("sumber_status") == "zscore_who":
             catatan_sumber = (
-                "Status ini dihitung langsung menggunakan standar pertumbuhan resmi dari WHO "
-                "(disebut Z-Score Tinggi Badan menurut Umur, atau TB/U), karena hasil pengukuran "
-                "berada pada rentang yang sudah jelas kategorinya."
+                "Status ini dihitung langsung dari standar tinggi badan menurut umur (Z-Score TB/U) "
+                "yang ditetapkan WHO, karena hasilnya berada di luar kategori Stunted/Severely Stunted."
             )
         else:
             catatan_sumber = (
-                "Status ini dibantu oleh sistem prediksi yang telah diuji secara ilmiah, "
-                "untuk membedakan tingkat keparahan antara Stunted dan Severely Stunted "
-                "secara lebih tepat."
+                "Status ini dihitung menggunakan model prediksi (Random Forest) yang dilatih khusus "
+                "untuk membedakan tingkat keparahan antara Stunted dan Severely Stunted."
             )
-
         zscore = result.get("zscore")
         zscore_html = f"<div><span>Z-Score TB/U</span><b>{zscore:.2f} SD</b></div>" if zscore is not None else ""
         st.markdown(
-            f"""<section class="prediction-card {tone}"><div class="tag">HASIL DETEKSI</div>
+            f"""<section class="prediction-card {tone}"><div class="tag">HASIL CEK</div>
             <h2>{result['status']}</h2><div class="result-grid"><div><span>Status</span><b>{interpretation}</b></div>
             <div><span>Tingkat Keyakinan</span><b>{result['confidence']:.0%}</b></div>{zscore_html}</div>
-            <h3>Apa artinya ini?</h3><p>{interpretation}. {catatan_sumber} Hasil ini adalah alat bantu deteksi dini, bukan diagnosis akhir — tetap perlu dikonfirmasi melalui pemeriksaan langsung oleh tenaga kesehatan.</p>
-            <h3>Rincian kemungkinan status</h3><ul class="probability-list">{probability_html}</ul>
-            <h3>Yang sebaiknya dilakukan</h3><ul>{recommendation_html}</ul></section>""",
+            <h3>Penjelasan</h3><p>{interpretation}. {catatan_sumber} Hasil ini hanya alat bantu deteksi dini, bukan diagnosis. Tetap perlu dikonfirmasi oleh tenaga kesehatan.</p>
+            <h3>Rincian Kemungkinan Hasil</h3><ul class="probability-list">{probability_html}</ul>
+            <h3>Saran Tindak Lanjut</h3><ul>{recommendation_html}</ul></section>""",
             unsafe_allow_html=True,
         )
-
         # Catat ke riwayat harian (CSV lokal + session_state).
         # Catatan: karena tidak memakai database, riwayat akan hilang jika
         # aplikasi di-redeploy pada hosting dengan disk sementara (ephemeral).
@@ -120,34 +111,33 @@ if submitted:
         save_record(record)
         st.session_state.setdefault("riwayat_sesi", []).append(record)
     except Exception as error:
-        st.error(f"Deteksi belum dapat dilakukan: {error}")
+        st.error(f"Pemeriksaan belum bisa dilakukan: {error}")
 
 st.markdown(
-    "<div class='disclaimer'><b>Catatan penting.</b> Hasil deteksi dini ini adalah alat bantu awal, bukan pengganti "
-    "pemeriksaan dan diagnosis resmi dari Bidan atau dokter. Kategori Normal dan Tinggi dihitung berdasarkan standar "
-    "pertumbuhan resmi WHO (Z-Score TB/U). Untuk kategori Stunted dan Severely Stunted, tingkat keparahannya dibantu "
-    "oleh sistem prediksi yang sudah diuji dan dievaluasi secara ilmiah sebelum digunakan di aplikasi ini.</div>",
+    "<div class='disclaimer'><b>Catatan penting.</b> Hasil cek ini tidak menggantikan pemeriksaan langsung oleh Bidan atau dokter. "
+    "Kategori Normal/Tinggi dihitung dari standar tinggi badan menurut umur (Z-Score TB/U) dari WHO, sedangkan tingkat keparahan "
+    "Stunted/Severely Stunted ditentukan oleh model prediksi yang telah diuji dan dijelaskan pada skripsi ini.</div>",
     unsafe_allow_html=True,
 )
 
 st.divider()
-st.markdown("<h2 class='section-title'>Riwayat Deteksi</h2>", unsafe_allow_html=True)
+st.markdown("<h2 class='section-title'>Riwayat Pemeriksaan</h2>", unsafe_allow_html=True)
 
 history = load_history()
-with st.expander("Muat riwayat sebelumnya (jika file lokal hilang setelah redeploy)"):
-    uploaded = st.file_uploader("Unggah CSV riwayat", type="csv")
+with st.expander("Muat riwayat sebelumnya (jika file di server hilang setelah redeploy)"):
+    uploaded = st.file_uploader("Unggah file CSV riwayat", type="csv")
     if uploaded is not None:
         try:
             uploaded_df = pd.read_csv(uploaded)
             history = merge_uploaded_history(uploaded_df, history)
-            st.success("Riwayat yang diunggah berhasil digabungkan untuk tampilan ini.")
+            st.success("Riwayat yang diunggah berhasil digabungkan untuk ditampilkan.")
         except Exception as error:
             st.error(f"Berkas tidak dapat dibaca: {error}")
 
 if history.empty:
     st.markdown(
-        "<div class='history-empty'>Belum ada riwayat deteksi. Riwayat akan muncul di sini "
-        "setelah ada pemeriksaan pada form di atas.</div>",
+        "<div class='history-empty'>Belum ada riwayat pemeriksaan. Riwayat akan muncul di sini "
+        "setelah ada pemeriksaan dari form di atas.</div>",
         unsafe_allow_html=True,
     )
 else:
@@ -159,9 +149,9 @@ else:
     )
     kpi_cols = st.columns(3, gap="medium")
     kpi_data = [
-        ("Pemeriksaan Hari Ini", f"{today_count:,}", "Total input pada form di atas"),
+        ("Pemeriksaan Hari Ini", f"{today_count:,}", "Jumlah anak yang diperiksa hari ini"),
         ("Terindikasi Stunting Hari Ini", f"{stunting_today:,}", "Status Stunted / Severely Stunted"),
-        ("Total Riwayat Tersimpan", f"{len(history):,}", "Sejak file riwayat pertama dibuat"),
+        ("Total Riwayat Tersimpan", f"{len(history):,}", "Sejak riwayat pertama kali dicatat"),
     ]
     for column, (label, value, caption) in zip(kpi_cols, kpi_data):
         column.markdown(
@@ -183,7 +173,7 @@ else:
     )
 
 st.markdown(
-    "<div class='disclaimer'><b>Catatan.</b> Riwayat disimpan sebagai file CSV lokal, bukan database — "
-    "unduh secara berkala bila ingin menyimpan riwayat jangka panjang.</div>",
+    "<div class='disclaimer'><b>Catatan.</b> Riwayat disimpan sebagai file CSV di server, bukan database — "
+    "unduh secara berkala agar riwayat tidak hilang jika ingin disimpan dalam jangka panjang.</div>",
     unsafe_allow_html=True,
 )
