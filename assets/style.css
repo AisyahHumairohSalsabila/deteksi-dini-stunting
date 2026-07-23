@@ -4,11 +4,45 @@
   --navy:#173B57; --blue:#327DB5; --pale:#F8FAFC; --card:#FFFFFF; --border:#DDE7F0;
   --muted:#61788B; --green:#15805D; --orange:#BE6A20; --red:#B9474B;
   --shadow:0 10px 26px rgba(23,59,87,.07); --radius:20px;
+  --font-utama:'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
 }
 
-html, body, [class*="css"] { font-family:'Plus Jakarta Sans',sans-serif; color:var(--navy) !important; }
-html, body { color-scheme:light !important; background:var(--pale) !important; }
+/* =========================================================
+   FONT KONSISTEN DI SELURUH APLIKASI
+   Streamlit membungkus banyak elemen dengan kelas dinamis
+   (mis. "st-emotion-cache-xxxxx") yang tidak bisa diprediksi
+   namanya persis, dan sebagian komponen (dropdown popover,
+   tooltip, menu) dirender lewat portal yang tetap berada di
+   dalam <body> tapi di luar struktur .stApp biasa. Supaya font
+   benar-benar konsisten di semua kondisi, terapkan font utama
+   dari level paling atas (html/body) dengan !important, lalu
+   tegaskan lagi eksplisit ke heading, teks, dan komponen umum.
+   ========================================================= */
+* { font-family:var(--font-utama) !important; }
+html, body { font-family:var(--font-utama) !important; color:var(--navy); color-scheme:light !important; background:var(--pale) !important; }
 .stApp { background:var(--pale) !important; color:var(--navy) !important; }
+.stApp, .stApp * { font-family:var(--font-utama) !important; }
+
+h1, h2, h3, h4, h5, h6, p, span, div, label, button, input, textarea, select,
+li, a, td, th {
+  font-family:var(--font-utama) !important;
+}
+
+/* Kode/monospace tetap dibiarkan memakai font monospace bawaan —
+   ini memang standar untuk blok kode (st.code), bukan bug. */
+code, pre, kbd, samp, [data-testid="stCodeBlock"] * {
+  font-family:'Source Code Pro', 'SFMono-Regular', Consolas, monospace !important;
+}
+
+/* Komponen BaseWeb yang dirender lewat portal (dropdown popover,
+   tooltip, menu, modal) tetap berada di dalam <body> Streamlit,
+   jadi tetap dijangkau seleksi ini. */
+[data-baseweb] , [data-baseweb] *,
+[role="listbox"], [role="listbox"] *,
+[role="tooltip"], [role="tooltip"] *,
+[role="dialog"], [role="dialog"] * {
+  font-family:var(--font-utama) !important;
+}
 
 /* =========================================================
    HEADER & TOMBOL TOGGLE SIDEBAR
@@ -139,7 +173,7 @@ label, [data-testid="stWidgetLabel"] p { color:var(--navy) !important; font-size
 
 .stButton>button,[data-testid="stFormSubmitButton"]>button {
   background:#1E88E5 !important; color:#fff !important; border:0 !important;
-  border-radius:11px !important; font-family:inherit !important; font-size:15px !important;
+  border-radius:11px !important; font-family:var(--font-utama) !important; font-size:15px !important;
   font-weight:700 !important; min-height:46px;
 }
 .stButton>button:hover,[data-testid="stFormSubmitButton"]>button:hover { background:#166DB8 !important; }
@@ -169,7 +203,12 @@ label, [data-testid="stWidgetLabel"] p { color:var(--navy) !important; font-size
 /* Riwayat / history table */
 .history-empty { background:#fff; border:1px dashed var(--border); border-radius:16px; padding:2rem; text-align:center; color:var(--muted); }
 
-/* Plotly charts & dataframes selalu menyesuaikan lebar kontainer */
+/* Plotly charts & dataframes selalu menyesuaikan lebar kontainer.
+   CATATAN: font di DALAM grafik Plotly (judul, label sumbu, legend)
+   TIDAK bisa diatur lewat CSS ini karena Streamlit merender
+   st.plotly_chart di dalam iframe terpisah yang terisolasi dari CSS
+   halaman utama. Font grafik harus diatur dari sisi Python, lihat
+   perbaikan pada fungsi base_layout() di utils/visualization.py. */
 [data-testid="stPlotlyChart"], .js-plotly-plot, [data-testid="stDataFrame"] {
   width:100% !important; max-width:100%;
 }
