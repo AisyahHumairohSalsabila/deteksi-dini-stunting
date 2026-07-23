@@ -1,7 +1,6 @@
 """Pemuatan data primer dan visualisasi Plotly untuk tahap deployment."""
 from __future__ import annotations
 
-import re
 from pathlib import Path
 from typing import Any
 
@@ -19,11 +18,10 @@ DATASET_DIR = ROOT_DIR / "DATASET-PRIMER"
 WARNA = {"Normal": "#1c9b72", "Stunted": "#e08b2d", "Severely Stunted": "#c74b50", "Tinggi": "#2477b9"}
 STATUS_ORDER = ["Severely Stunted", "Stunted", "Normal", "Tinggi"]
 
-# Pola untuk mengekstrak tahun 4 digit (19xx/20xx) dari nilai kolom tahun.
-# Diperlukan karena pada sebagian data, kolom tahun tercampur dengan kode/ID
-# lain (mis. "Daftar-Status-Gizi-PMT-20042604-0006") sehingga tidak bisa
-# langsung dipakai sebagai kategori pada grafik tren.
-_TAHUN_PATTERN = re.compile(r"(19|20)\d{2}")
+# Batas tahun yang masuk akal untuk data pemeriksaan (mencegah entri tanggal
+# yang salah ketik/parsing menghasilkan tahun ekstrem seperti 1900 atau 2099).
+TAHUN_MIN = 2000
+TAHUN_MAX_OFFSET = 1  # tahun berjalan + 1, untuk mengakomodasi input mendekati akhir tahun
 
 
 def _baca_file(path: Path) -> pd.DataFrame:
@@ -66,6 +64,14 @@ def load_primary_data() -> pd.DataFrame:
     data["umur"] = np.floor((data["tanggal_pengukuran"] - data["tgl_lahir"]).dt.days / 30.44)
     data.loc[data["umur"] < 0, "umur"] = np.nan
 
+    # Kolom tahun yang benar-benar valid diambil dari tanggal pemeriksaan
+    # (bukan dari kolom "tahun_data" pada berkas sumber, yang ternyata berisi
+    # kode/ID seperti "Daftar-Status-Gizi-PMT-20042604-0006" — angka di
+    # dalamnya bukan tahun, sehingga tidak bisa dipakai untuk grafik tren).
+    tahun_batas_atas = pd.Timestamp.now().year + TAHUN_MAX_OFFSET
+    tahun = data["tanggal_pengukuran"].dt.year
+    data["tahun"] = tahun.where(tahun.between(TAHUN_MIN, tahun_batas_atas)).astype("Int64")
+
     data["status_stunting"] = pd.cut(
         data["zs_tb_u"], [-np.inf, -3, -2, 3, np.inf],
         labels=STATUS_ORDER, right=False,
@@ -98,24 +104,6 @@ def base_layout(fig: go.Figure, title: str) -> go.Figure:
 
 def _status_order(data: pd.DataFrame) -> list[str]:
     return [s for s in STATUS_ORDER if s in data["status_stunting"].unique()]
-
-
-def _extract_tahun(series: pd.Series) -> pd.Series:
-    """Mengekstrak tahun 4 digit (19xx/20xx) dari nilai kolom tahun.
-
-    Beberapa berkas sumber menyimpan kolom tahun bercampur dengan kode/ID
-    lain (mis. nama berkas PMT). Fungsi ini menyaring hanya bagian angka
-    tahunnya sehingga grafik tren tidak menampilkan puluhan label acak.
-    Baris yang tidak mengandung tahun valid akan bernilai NaN dan
-    dikeluarkan dari grafik.
-    """
-    extracted = series.astype(str).str.extract(_TAHUN_PATTERN.pattern, expand=False)
-    # extract dengan grup pola di atas hanya mengambil grup "(19|20)", jadi
-    # gunakan pencarian penuh 4 digit agar hasilnya utuh (mis. "2023").
-    extracted_full = series.astype(str).apply(
-        lambda value: (match.group() if (match := _TAHUN_PATTERN.search(value)) else None)
-    )
-    return pd.to_numeric(extracted_full, errors="coerce").astype("Int64")
 
 
 def build_data_figures(data: pd.DataFrame) -> dict[str, go.Figure]:
@@ -172,28 +160,27 @@ def build_wilayah_figures(data: pd.DataFrame, wilayah_column: str | None) -> dic
 def build_trend_figures(data: pd.DataFrame, tahun_column: str | None) -> dict[str, go.Figure]:
     """Grafik tren jumlah kasus per tahun — kosong jika kolom tahun tidak ada.
 
-    Nilai kolom tahun dibersihkan terlebih dahulu (hanya diambil angka
-    tahun 4 digitnya) sebelum dikelompokkan, sehingga sumbu-x menampilkan
-    tahun yang rapi (mis. 2020, 2021, 2022) alih-alih string/kode mentah.
+    Mengasumsikan `tahun_column` sudah berupa tahun numerik yang bersih
+    (lihat kolom "tahun" yang dibangun di load_primary_data, diturunkan dari
+    tanggal_pengukuran). Baris tanpa tahun valid dibuang agar tidak membuat
+    sumbu-x melebar dengan nilai yang tidak masuk akal.
     """
     if not tahun_column or tahun_column not in data.columns:
         return {}
 
-    working = data.copy()
-    working["_tahun_bersih"] = _extract_tahun(working[tahun_column])
-    working = working.dropna(subset=["_tahun_bersih"])
+    working = data.dropna(subset=[tahun_column]).copy()
     if working.empty:
         return {}
+    working[tahun_column] = working[tahun_column].astype(int)
 
     order = _status_order(working)
     counted = (
-        working.groupby(["_tahun_bersih", "status_stunting"], observed=True).size()
-        .reset_index(name="jumlah").sort_values("_tahun_bersih")
+        working.groupby([tahun_column, "status_stunting"], observed=True).size()
+        .reset_index(name="jumlah").sort_values(tahun_column)
     )
-    counted["_tahun_bersih"] = counted["_tahun_bersih"].astype(int)
 
     fig = px.line(
-        counted, x="_tahun_bersih", y="jumlah", color="status_stunting", markers=True,
+        counted, x=tahun_column, y="jumlah", color="status_stunting", markers=True,
         category_orders={"status_stunting": order}, color_discrete_map=WARNA,
     )
     fig.update_xaxes(title="Tahun", dtick=1, tickformat="d")
