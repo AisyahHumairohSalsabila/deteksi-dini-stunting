@@ -34,6 +34,25 @@ code, pre, kbd, samp, [data-testid="stCodeBlock"] * {
   font-family:'Source Code Pro', 'SFMono-Regular', Consolas, monospace !important;
 }
 
+/* =========================================================
+   PERBAIKAN: IKON BAWAAN STREAMLIT (Material Symbols)
+   Streamlit merender ikon internalnya (panah expander, panah
+   sort di dataframe, dsb) sebagai teks nama ikon literal di
+   dalam <span data-testid="stIconMaterial">, lalu mengandalkan
+   font 'Material Symbols Rounded' untuk mengubah teks itu jadi
+   glyph ikon lewat ligature. Aturan "* { font-family:... }" di
+   atas ikut menimpa font span ini, sehingga ligature-nya gagal
+   dan yang tampil justru teks nama ikonnya apa adanya (mis.
+   "keyboard_double_arrow_right", "arrow_right"). Kembalikan
+   font khusus untuk elemen ini saja. Selector pakai kombinasi
+   tag+atribut supaya spesifisitasnya lebih tinggi dari ".stApp *"
+   di atas, jadi urutan taruh di file tidak berpengaruh.
+   ========================================================= */
+span[data-testid="stIconMaterial"],
+div[data-testid="stIconMaterial"] {
+  font-family: 'Material Symbols Rounded' !important;
+}
+
 /* Komponen BaseWeb yang dirender lewat portal (dropdown popover,
    tooltip, menu, modal) tetap berada di dalam <body> Streamlit,
    jadi tetap dijangkau seleksi ini. */
@@ -42,6 +61,11 @@ code, pre, kbd, samp, [data-testid="stCodeBlock"] * {
 [role="tooltip"], [role="tooltip"] *,
 [role="dialog"], [role="dialog"] * {
   font-family:var(--font-utama) !important;
+}
+/* Tapi ikon Material Symbols yang mungkin muncul di dalam portal
+   (mis. panah di popover select) tetap harus pakai font ikonnya. */
+[data-baseweb] span[data-testid="stIconMaterial"] {
+  font-family: 'Material Symbols Rounded' !important;
 }
 
 /* =========================================================
