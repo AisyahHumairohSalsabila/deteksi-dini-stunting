@@ -36,7 +36,14 @@ def _baca_file(path: Path) -> pd.DataFrame:
 
 
 def load_primary_data() -> pd.DataFrame:
-    """Membaca seluruh Excel primer dan hanya menyisakan kolom non-identitas."""
+    """Membaca seluruh Excel/CSV primer dan hanya menyisakan kolom non-identitas.
+
+    Berkas sumber dapat berupa data mentah lengkap (dengan tgl_lahir,
+    tanggal_pengukuran, wilayah, dst) ATAU berkas ringkas hasil ekspor
+    notebook yang sudah berisi kolom "umur" dan "status_stunting" siap
+    pakai. Fungsi ini menyesuaikan otomatis ke kedua kemungkinan tanpa
+    error, supaya pergantian format berkas sumber tidak mematikan dashboard.
+    """
     frames: list[pd.DataFrame] = []
     pii = ("NIK", "NAMA", "AYAH", "IBU", "ORTU", "ALAMAT", "RT", "RW", "HP", "TELP")
     for path in sorted(DATASET_DIR.rglob("*")):
@@ -72,40 +79,67 @@ def load_primary_data() -> pd.DataFrame:
         .str.replace("/", "_", regex=False).str.replace(".", "", regex=False)
     )
 
-    # dayfirst=True: berkas sumber memakai format tanggal Indonesia
-    # (dd/mm/yyyy). Tanpa ini, pandas bisa salah menafsirkan tanggal
-    # sehingga banyak baris gagal parse (NaT) dan kolom "tahun" berakhir
-    # kosong semua -> grafik tren hilang meski kolomnya ada.
-    data["tgl_lahir"] = pd.to_datetime(data["tgl_lahir"], errors="coerce", dayfirst=True)
-    data["tanggal_pengukuran"] = pd.to_datetime(data["tanggal_pengukuran"], errors="coerce", dayfirst=True)
+    # --- Umur ---
+    # Jika berkas sumber sudah punya kolom "umur" siap pakai (berkas
+    # ringkas hasil ekspor notebook), pakai langsung. Jika tidak ada,
+    # baru dihitung dari tgl_lahir & tanggal_pengukuran (berkas mentah).
+    if "umur" not in data.columns:
+        if "tgl_lahir" in data.columns and "tanggal_pengukuran" in data.columns:
+            # dayfirst=True: berkas sumber memakai format tanggal Indonesia
+            # (dd/mm/yyyy). Tanpa ini, pandas bisa salah menafsirkan tanggal
+            # sehingga banyak baris gagal parse (NaT).
+            data["tgl_lahir"] = pd.to_datetime(data["tgl_lahir"], errors="coerce", dayfirst=True)
+            data["tanggal_pengukuran"] = pd.to_datetime(data["tanggal_pengukuran"], errors="coerce", dayfirst=True)
+            data["umur"] = np.floor((data["tanggal_pengukuran"] - data["tgl_lahir"]).dt.days / 30.44)
+            data.loc[data["umur"] < 0, "umur"] = np.nan
+        else:
+            data["umur"] = np.nan
+    else:
+        data["umur"] = pd.to_numeric(data["umur"], errors="coerce")
 
-    data["umur"] = np.floor((data["tanggal_pengukuran"] - data["tgl_lahir"]).dt.days / 30.44)
-    data.loc[data["umur"] < 0, "umur"] = np.nan
+    # --- Tahun ---
+    # PENTING: kolom tahun SELALU dibangun dari tanggal pemeriksaan
+    # (tanggal_pengukuran), bukan dari kolom mentah semacam "tahun_data"
+    # pada berkas sumber — kolom itu ternyata berisi kode/ID, bukan tahun
+    # murni. Jika berkas sumber (ringkas) tidak menyertakan tanggal sama
+    # sekali, kolom "tahun" akan kosong (NaN) dan grafik tren otomatis
+    # dilewati oleh build_trend_figures(), bukan membuat aplikasi error.
+    if "tanggal_pengukuran" in data.columns:
+        if not pd.api.types.is_datetime64_any_dtype(data["tanggal_pengukuran"]):
+            data["tanggal_pengukuran"] = pd.to_datetime(data["tanggal_pengukuran"], errors="coerce", dayfirst=True)
+        tahun_batas_atas = pd.Timestamp.now().year + TAHUN_MAX_OFFSET
+        tahun = data["tanggal_pengukuran"].dt.year
+        data["tahun"] = tahun.where(tahun.between(TAHUN_MIN, tahun_batas_atas)).astype("Int64")
+    else:
+        data["tahun"] = pd.array([pd.NA] * len(data), dtype="Int64")
 
-    # PENTING: kolom tahun yang dipakai di seluruh dashboard SELALU dibangun
-    # dari tanggal pemeriksaan (tanggal_pengukuran), bukan dari kolom mentah
-    # semacam "tahun_data" pada berkas sumber — kolom itu ternyata berisi
-    # kode/ID (mis. "Daftar-Status-Gizi-PMT-20042604-0006" atau nama
-    # berkas/folder lain), bukan tahun murni, sehingga tidak aman dipakai
-    # langsung untuk grafik tren.
-    tahun_batas_atas = pd.Timestamp.now().year + TAHUN_MAX_OFFSET
-    tahun = data["tanggal_pengukuran"].dt.year
-    data["tahun"] = tahun.where(tahun.between(TAHUN_MIN, tahun_batas_atas)).astype("Int64")
-
-    # Diagnostik sementara: hapus/nonaktifkan setelah penyebab kolom tahun
-    # kosong (bila terjadi) sudah dipastikan dan diperbaiki.
+    # Diagnostik sementara: hapus/nonaktifkan setelah struktur berkas sumber
+    # sudah stabil dan tidak lagi berganti-ganti format.
     total_baris = len(data)
-    nat_tanggal = int(data["tanggal_pengukuran"].isna().sum())
     nan_tahun = int(data["tahun"].isna().sum())
     print(f"[load_primary_data] total baris: {total_baris}")
-    print(f"[load_primary_data] tanggal_pengukuran gagal parse (NaT): {nat_tanggal}")
+    print(f"[load_primary_data] kolom tersedia: {list(data.columns)}")
     print(f"[load_primary_data] tahun kosong (NaN): {nan_tahun}")
 
-    data["status_stunting"] = pd.cut(
-        data["zs_tb_u"], [-np.inf, -3, -2, 3, np.inf],
-        labels=STATUS_ORDER, right=False,
-    ).astype("string")
-    data.loc[data["zs_tb_u"].eq(3), "status_stunting"] = "Normal"
+    # --- Status stunting ---
+    # Jika berkas sumber sudah punya kolom "status_stunting" siap pakai,
+    # pakai langsung (dan rapikan kapitalisasinya). Jika tidak ada, baru
+    # dihitung dari zs_tb_u sesuai ambang batas resmi WHO.
+    if "status_stunting" in data.columns:
+        data["status_stunting"] = data["status_stunting"].astype(str).str.strip().str.title()
+        data.loc[~data["status_stunting"].isin(STATUS_ORDER), "status_stunting"] = pd.NA
+        data["status_stunting"] = data["status_stunting"].astype("string")
+    elif "zs_tb_u" in data.columns:
+        data["status_stunting"] = pd.cut(
+            data["zs_tb_u"], [-np.inf, -3, -2, 3, np.inf],
+            labels=STATUS_ORDER, right=False,
+        ).astype("string")
+        data.loc[data["zs_tb_u"].eq(3), "status_stunting"] = "Normal"
+    else:
+        raise ValueError(
+            "Berkas sumber tidak memiliki kolom 'status_stunting' maupun 'zs_tb_u' "
+            "untuk menentukan status pertumbuhan."
+        )
 
     return data
 
