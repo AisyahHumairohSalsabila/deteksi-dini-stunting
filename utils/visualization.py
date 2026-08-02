@@ -54,6 +54,18 @@ def load_primary_data() -> pd.DataFrame:
         raise ValueError("Tidak ada file dataset primer yang dapat dibaca.")
 
     data = pd.concat(frames, ignore_index=True)
+
+    # PENGAMAN: hapus baris duplikat penuh, jaga-jaga jika suatu berkas
+    # sumber ter-upload dobel (mis. dua kali commit tanpa replace, atau
+    # ada dua berkas berbeda nama tapi isinya sama). Tanpa ini, jumlah
+    # data pada dashboard bisa membengkak dua kali lipat tanpa terlihat.
+    baris_sebelum_dedup = len(data)
+    data = data.drop_duplicates()
+    baris_sesudah_dedup = len(data)
+    if baris_sebelum_dedup != baris_sesudah_dedup:
+        print(f"[load_primary_data] duplikat terdeteksi dan dihapus: "
+              f"{baris_sebelum_dedup} -> {baris_sesudah_dedup} baris")
+
     data.columns = (
         data.columns.astype(str).str.strip().str.lower()
         .str.replace(" ", "_", regex=False).str.replace("-", "_", regex=False)
